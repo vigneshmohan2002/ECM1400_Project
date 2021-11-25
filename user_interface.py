@@ -14,7 +14,7 @@ ud_location_type = ""
 """
 Coding Tip:
 # Run code to find covid stats here (outside the "@app.route('/')" decorator)
-# to update the dashboard stats and news initially. Use global variables?
+# to update the dashboard stats and news. Use global variables?
 # Generate the values here and display it in the dashboard inside the
 # "@app.route('/')" decorator
 """
@@ -22,8 +22,9 @@ Coding Tip:
 stats = {}  # This variable gets displayed, changes are made to this
 news = {}  # This variable gets displayed, changes are made to this
 
-# Update for covid stats to display in dashboard when it's initially opened.
-# This prevents continuous refresh of stats.
+# Update for covid stats to be displayed in dashboard when it's initially
+# opened. This prevents continuous refresh of stats. After this the scheduled
+# updates will handle it.
 
 if ud_location == "":
     ud_location = "Exeter"
@@ -48,7 +49,7 @@ def updates():
     leads to the time being checked.
     """
     return render_template('index.html',
-                           title=ud_location,
+                           location=ud_location,
                            nation_location="England",
                            local_7day_infections=stats["L7DIR"],
                            national_7day_infections=stats["N7DIR"],
@@ -65,7 +66,7 @@ def updates():
 @app.route('/index')
 def button_response():
     return render_template('index.html',
-                           title=ud_location,
+                           location=ud_location,
                            nation_location="England",
                            local_7day_infections=stats["L7DIR"],
                            national_7day_infections=stats["N7DIR"],

@@ -1,5 +1,15 @@
 from uk_covid19 import Cov19API
 import sched
+import json
+
+
+def json_processor(filename):
+    with open(filename, 'r') as f:
+        file = json.load(f)
+    return file
+
+
+config = json_processor('config.json')  # Global variable since used throughout
 
 
 def parse_csv_data(csv_filename: str):
@@ -30,18 +40,40 @@ def process_covid_csv_data(covid_csv_data: list):
     # Get the string args from config.json instead of using literals.
 
     # Getting hospital cases
-    current_hospital_cases = finding_most_recent_datapoint(processed_data,
-                                                           "hospCases")
+    if 'hospitalCases' in config['structure'].values():
+        key = get_key('hospitalCases', config['structure'])
+        current_hospital_cases = finding_most_recent_datapoint(processed_data,
+                                                               key)
+    else:
+        current_hospital_cases = finding_most_recent_datapoint(processed_data,
+                                                               "hospCases")
 
     # Getting cases over last 7 days.
-    last7days_cases = finding_summation_over_rows(processed_data,
+    if 'newCasesBySpecimenDate' in config['structure'].values():
+        key = get_key('newCasesBySpecimenDate', config['structure'])
+        last7days_cases = finding_summation_over_rows(processed_data,
+                                                      key, 7, 1)
+    else:
+        last7days_cases = finding_summation_over_rows(processed_data,
                                                   "newCases", 7, 1)
 
     # Finding total deaths
-    total_deaths = finding_most_recent_datapoint(processed_data,
+    if 'cumDailyNsoDeathsByDeathDate' in config['structure'].values():
+        key = get_key('cumDailyNsoDeathsByDeathDate', config['structure'])
+        total_deaths = finding_most_recent_datapoint(processed_data,
+                                                               key)
+    else:
+        total_deaths = finding_most_recent_datapoint(processed_data,
                                                  "cumDailyDeaths")
 
     return last7days_cases, current_hospital_cases, total_deaths
+
+
+def get_key(v, kvdict):
+    for key, value in kvdict.items():
+        if v == value:
+            return key
+    return None
 
 
 def table_generator(data):
@@ -118,20 +150,21 @@ def covid_API_request(location="Exeter", location_type="ltla"):
     area_filter = ['areaType=' + location_type, 'areaName=' + location]
     country_filter = ['areaType=nation', 'areaName=England']
 
-    # Will use config.json to configure this ensure that
+    # config.json is used to pull the file structure.
+
+    csv_file_structure = config['structure']
+
     # cumDailyNsoDeathsByDeathDate, hospitalCases, newCasesBySpecimenDate is
-    # always included in the structure. This is imperative for the functioning
-    # of the simple dashboard.
-    csv_file_structure = \
-        {
-            "areaCode": "areaCode",
-            "areaName": "areaName",
-            "areaType": "areaType",
-            "date": "date",
-            "cumDailyDeaths": "cumDailyNsoDeathsByDeathDate",
-            "hospCases": "hospitalCases",
-            "newCases": "newCasesBySpecimenDate",
-        }
+    # necessary for the dashboard to function. Therefore it is checked
+    # whether it is included in the file structure and updated if it is not.
+
+    necessary_data = {'cumDailyDeaths': 'cumDailyNsoDeathsByDeathDate',
+                      'hospCases': 'hospitalCases',
+                      'newCases': 'newCasesBySpecimenDate'}
+
+    for item in necessary_data.values():
+        if not (item in csv_file_structure.values()):
+            csv_file_structure.update(item)
 
     area_api = Cov19API(filters=area_filter, structure=csv_file_structure)
     country_api = Cov19API(filters=country_filter, structure=csv_file_structure)
@@ -166,17 +199,69 @@ def covid_API_request(location="Exeter", location_type="ltla"):
                   "CHCases": country_chc,
                   "TD": country_td
                   }
+    additional_data = {}
+
+    # Processing additional data for area
+
+    if len(config['summation_area']) > 0 or \
+            len(config['most_recent_datapoint_area']) > 0:
+        processed_area_data = table_generator(area_data)
+        if len(config['summation_area']) > 0:
+            for item in config['summation_area']:
+                try:
+                    updater = {item[1]: finding_summation_over_rows(
+                        processed_area_data, item[0], item[2], item[3])}
+                except ValueError:
+                    updater = {item[1]: "Not in CSV file, update the structure"}
+                except:
+                    updater = {item[1]: "Error"}
+                additional_data.update(updater)
+
+        if len(config['most_recent_datapoint_area']) > 0:
+            for item in config['most_recent_datapoint_area']:
+                try:
+                    updater = {item[1]: finding_most_recent_datapoint(
+                        processed_area_data, item[0], item[2])}
+                except ValueError:
+                    updater = {item[1]: "Not in CSV file, update the structure"}
+                except:
+                    updater = {item[1]: "Error"}
+                additional_data.update(updater)
+
+    # Processing additional data for country
+
+    if len(config['summation_country']) > 0 or \
+            len(config['most_recent_datapoint_country']) > 0:
+        processed_country_data = table_generator(area_data)
+        if len(config['summation_country']) > 0:
+            for item in config['summation_country']:
+                try:
+                    updater = {item[1]: finding_summation_over_rows(
+                        processed_country_data, item[0], item[2], item[3])}
+                except ValueError:
+                    updater = {item[1]: "Not in CSV file, update the structure"}
+                except:
+                    updater = {item[1]: "Error"}
+                additional_data.update(updater)
+
+        if len(config['most_recent_datapoint_country']) > 0:
+            for item in config['most_recent_datapoint_country']:
+                try:
+                    updater = {item[1]: finding_most_recent_datapoint(
+                        processed_country_data, item[0], item[2])}
+                except ValueError:
+                    updater = {item[1]: "Not in CSV file, update the structure"}
+                except:
+                    updater = {item[1]: "Error"}
+                additional_data.update(updater)
+
+    covid_data.update(additional_data)
     return covid_data
-
-
-# One function to schedule NON-repeating updates
-# Another to schedule repeating updates? Use an if statement in the user
-# interface part to decide which function to call?
-# use update_name to give info to the function? NU = news update,
-# SU = stats update, NSU = news and stats update (small string makes more
-# efficient) (Can also use R at the end to denote repeating)
 
 
 def schedule_covid_updates(update_interval, update_name):
     # Leave aside.
     return None
+
+
+covid_API_request()
