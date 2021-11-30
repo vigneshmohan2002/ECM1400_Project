@@ -1,6 +1,6 @@
 from flask import Flask
 from flask import render_template
-from flask import request
+from flask import request, url_for
 import covid_data_handler as c_data
 import covid_news_handling as c_news
 from miscellaneous import required_interval as interval, json_processor
@@ -21,14 +21,26 @@ ui_scheduled_updates = []
 
 @app.route('/index')
 def button_responses():
+    """
+    This function is responsible for running the web application. When any
+    button is triggered, the arguments are received here and the necessary
+    actions are taken.
+    :return: An html file containing all the necessary information is
+    uploaded to the server using the render_template function from the flask
+    module.
+    """
     # Receiving any arguments that are sent when the submit button is triggered.
     update_name = request.args.get('two')  # Always filled.
     update_time = request.args.get('update')
     repeating = request.args.get('repeat')
     covid_ud = request.args.get('covid-data')
     news_ud = request.args.get('news')
+    # This will be run if the Submit button is triggered.
     if update_name:
         if update_time:
+            # Each if statement here corresponds to whether both the news and
+            # stats update checkboxes were triggered or if either one was
+            # triggered.
             if covid_ud and news_ud:
                 if repeating:
                     c_data.schedule_repeating_covid_updates(update_name +

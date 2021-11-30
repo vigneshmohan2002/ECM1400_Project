@@ -12,6 +12,15 @@ ud_search_terms = config['ud_search_terms']
 
 
 def news_API_request(covid_terms="Covid COVID-19 coronavirus"):
+    """
+    This function is used to access the News API to pull articles passing the
+    necessary search terms in the query and return articles related to those
+    terms.
+
+    :param covid_terms: Search terms passed into the function
+    :return results["articles"]: Returns the values attributed to articles key
+    in the dictionary generated from the json file pulled from the API.
+    """
     url = 'https://newsapi.org/v2/everything?'
     search_terms = covid_terms.split()
     results = {}
@@ -26,6 +35,10 @@ def news_API_request(covid_terms="Covid COVID-19 coronavirus"):
 
 
 def update_news():
+    """
+    This function updates the global news_articles variable that is accessed by
+    the user_interface module when scheduled.
+    """
     if ud_search_terms == "":
         articles_to_be_processed = news_API_request()
     else:
@@ -39,7 +52,15 @@ def update_news():
     return None
 
 
-def update_news_repeating():
+def update_news_repeating(update_name):
+    """
+    This function updates the global news_articles variable that is accessed by
+    the user_interface module when scheduled. It also schedules itself to run
+    again in 24 hours under the same update name so that it may be canceled if
+    requested by the user.
+
+    :param update_name: The name of the update
+    """
     if ud_search_terms == "":
         articles_to_be_processed = news_API_request()
     else:
@@ -50,11 +71,18 @@ def update_news_repeating():
                                   'content': article["content"][:100] +
                                              "Read More:" + article["url"]
                                   })
-    UpdateScheduler.enter(24*60*60, 1, update_news_repeating)
+    task = UpdateScheduler.enter(24*60*60, 1, update_news_repeating,
+                                 argument=update_name)
+    scheduled_news_updates.update({update_name: task})
     return None
 
 
 def remove_article(del_article_title):
+    """
+    This function removes articles from the global news_articles variable
+    according to the title of the article.
+    :param del_article_title: The title of the article to be removed.
+    """
     for article in news_articles:
         if article["title"] == del_article_title:
             news_articles.remove(article)
@@ -63,16 +91,40 @@ def remove_article(del_article_title):
 
 
 def schedule_news_updates(update_name: str, update_interval: int):
+    """
+    This function schedules updates to the news_articles variable using the
+    scheduler.enter() function from the sched module and the update_news
+    function.
+    :param update_name: The name of the update
+    :param update_interval: The interval to pass into the scheduler.enter
+    function
+    """
     scheduled_news_updates.update({update_name: UpdateScheduler.enter
     (update_interval, 1, update_news)})
 
 
 def schedule_repeating_news_updates(update_name: str, update_interval: int):
+    """
+    This function schedules repeating updates to the news_articles variable
+    using the scheduler.enter() function from the sched module and the
+    update_news_repeating function.
+
+    :param update_name: The name of the update
+    :param update_interval: The interval to pass into the scheduler.enter
+    function
+    """
     scheduled_news_updates.update({update_name: UpdateScheduler.enter
-    (update_interval, 1, update_news_repeating)})
+    (update_interval, 1, update_news_repeating, argument=update_name)})
 
 
 def cancel_scheduled_news_updates(update_name: str):
+    """
+    This function cancels scheduled updates to the news variable using the
+    scheduler.cancel() function from the sched module and accessing the global
+    scheduled_news_updates dictionary.
+
+    :param update_name: The name of the update
+    """
     try:
         UpdateScheduler.cancel(scheduled_news_updates[update_name])
         del scheduled_news_updates[update_name]

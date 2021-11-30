@@ -14,9 +14,11 @@ scheduled_stats_updates = {}
 
 def parse_csv_data(csv_filename: str):
     """
-    This function takes in the filename as a parameter so it may locate the
-    corresponding csv file and parses it to return a list of all the lines
-    in the file.
+    This function takes in a csv file and parses it to return a list of strings,
+    each string comprises one line in the file.
+
+    :param csv_filename: The filepath to the csv file containing the data.
+    :return parsed_data: A list of strings containing values separated by commas
     """
     with open(csv_filename, 'r') as f:
         parsed_data = []
@@ -27,9 +29,15 @@ def parse_csv_data(csv_filename: str):
 
 def process_covid_csv_data(covid_csv_data: list):
     """
-    This function takes in the list of all the lines as produced by the
-    parse_csv_data function as a parameter so it may process it to return
-    last7days_cases, current_hospital_cases, total_deaths.
+    This function takes in a list of lines as produced by the
+    parse_csv_data function and returns statistics on the data from the
+    .csv file.
+
+    :param covid_csv_data: A list of strings containing values separated by
+    commas
+    :return last7days_cases: Total cases over the last 7 days
+    :return current_hospital_cases: Current COVID-19 cases in the hospital
+    :return total_deaths: Total deaths from COVID-19
     """
     # Splitting the strings to generate a list of values from each
     processed_data = table_generator(covid_csv_data)
@@ -70,6 +78,14 @@ def process_covid_csv_data(covid_csv_data: list):
 
 
 def get_key(v, kvdict):
+    """
+    This function finds the key from a key-pair value in a dictionary from the
+    value.
+
+    :param v: A value in the dictionary
+    :param kvdict: A key-value dictionary
+    :return key: The key to which they value in the dictionary is paired
+    """
     for key, value in kvdict.items():
         if v == value:
             return key
@@ -77,19 +93,32 @@ def get_key(v, kvdict):
 
 
 def table_generator(data):
+    """
+    This function generates a lis of lists of values from a list of strings.
+
+    :param data: A list of strings containing values separated by commas.
+    :return processed_data: A list of lists containing values.
+    """
     processed_data = []
     for line in data:
         processed_data.append(line.split(','))
     return processed_data
 
 
-def index_retriever(top_line: list, header: str):
-    return top_line.index(header)
-
-
 def finding_most_recent_datapoint(data: list, column_index: str, skip: int = 0):
+    """
+    This function finds the most recent datapoint from a table skipping rows as
+    needed from a specified column.
+
+    :param data: A list of lists containing values.
+    :param column_index: The name of the column where the data to be processed
+    is stored.
+    :param skip: The number of rows to be skipped as needed (usually in the case
+    of incomplete values)
+    :return mrdp: The most recent datapoint
+    """
     if type(column_index) == str:
-        column_index = index_retriever(data[0], column_index)
+        column_index = data[0].index(column_index)
     mrdp = 0  # mrdp is most recent datapoint
     if skip <= 0:
         try:
@@ -114,8 +143,21 @@ def finding_most_recent_datapoint(data: list, column_index: str, skip: int = 0):
 
 def finding_summation_over_rows(data: list, column_index: str,
                         number_of_days: int, skip: int = 0):
+    """
+    This function finds the sum of the values over a specified number of rows in
+    a specified column from a table skipping rows as needed from a specified
+    column.
+
+    :param data: A list of lists containing values.
+    :param column_index: The name of the column where the data to be processed
+    is stored.
+    :param number_of_days: The number of days or rows of data to be summed up.
+    :param skip: The number of rows to be skipped as needed (usually in the case
+    of incomplete values)
+    :return summation_over_rows: The summation over rows.
+    """
     if type(column_index) == str:
-        column_index = index_retriever(data[0], column_index)
+        column_index = data[0].index(column_index)
     summation_over_rows = 0
     starting_row = 0
 
@@ -147,6 +189,15 @@ def finding_summation_over_rows(data: list, column_index: str,
 
 
 def covid_API_request(location="Exeter", location_type="ltla"):
+    """
+    This function is used to access the UK COVID-19 API to pull data for the
+    necessary location and return the requested statistics.
+
+    :param location: The location for which data is required
+    :param location_type: The type of location
+    :return covid_data: A dictionary containing statistical values with its
+    title as the keys.
+    """
     area_filter = ['areaType=' + location_type, 'areaName=' + location]
     country_filter = ['areaType=nation', 'areaName=England']
 
@@ -260,6 +311,10 @@ def covid_API_request(location="Exeter", location_type="ltla"):
 
 
 def update_stats():
+    """
+    This function updates the global stats variable that is accessed by the
+    user_interface module when scheduled.
+    """
     global ud_location
     global ud_location_type
     global stats
@@ -271,33 +326,69 @@ def update_stats():
     return None
 
 
-def update_stats_repeating():
+def update_stats_repeating(update_name):
+    """
+    This function updates the global stats variable that is accessed by the
+    user_interface module when scheduled. It also schedules itself to run again
+    in 24 hours under the same update name so that it may be canceled if
+    requested by the user.
+
+    :param update_name: The name of the update
+    """
     global ud_location
     global ud_location_type
     global stats
     if ud_location == "":
         stats = covid_API_request()
-        UpdateScheduler.enter(24*60*60, 1, update_stats_repeating())
+        task = UpdateScheduler.enter(24*60*60, 1, update_stats_repeating,
+                                     argument=update_name)
+        scheduled_stats_updates.update({update_name: task})
     else:
-        stats = covid_API_request(ud_location,
-                                  ud_location_type)
-        UpdateScheduler.enter(24*60*60, 1, update_stats_repeating())
+        stats = covid_API_request(ud_location, ud_location_type)
+        task = UpdateScheduler.enter(24*60*60, 1, update_stats_repeating,
+                                     argument=update_name)
+        scheduled_stats_updates.update({update_name: task})
     return None
 
 
 def schedule_covid_updates(update_name: str, update_interval: int):
+    """
+    This function schedules updates to the stats variable using the
+    scheduler.enter() function from the sched module and the update_stats
+    function.
+    :param update_name: The name of the update
+    :param update_interval: The interval to pass into the scheduler.enter
+    function
+    """
     scheduled_stats_updates.update({update_name: UpdateScheduler.enter
     (update_interval, 1, update_stats)})
 
 
 def schedule_repeating_covid_updates(update_name: str, update_interval: int):
+    """
+    This function schedules repeating updates to the stats variable using the
+    scheduler.enter() function from the sched module and the
+    update_stats_repeating function.
+
+    :param update_name: The name of the update
+    :param update_interval: The interval to pass into the scheduler.enter
+    function
+    """
     scheduled_stats_updates.update({update_name: UpdateScheduler.enter
-    (update_interval, 1, update_stats_repeating)})
+    (update_interval, 1, update_stats_repeating, argument=update_name)})
 
 
 def cancel_scheduled_stats_updates(update_name: str):
+    """
+    This function cancels scheduled updates to the stats variable using the
+    scheduler.cancel() function from the sched module and accessing the global
+    scheduled_stats_updates dictionary.
+
+    :param update_name: The name of the update
+    """
     try:
         UpdateScheduler.cancel(scheduled_stats_updates[update_name])
         del scheduled_stats_updates[update_name]
     except KeyError:
         pass
+    return None
