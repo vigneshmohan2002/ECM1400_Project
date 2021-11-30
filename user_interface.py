@@ -1,77 +1,114 @@
 from flask import Flask
 from flask import render_template
-import covid_data_handler
-import covid_news_handling
+from flask import request
+import covid_data_handler as c_data
+import covid_news_handling as c_news
+from miscellaneous import required_interval as interval, json_processor
+from miscellaneous import UpdateScheduler
+
+config = json_processor('config.json')  # Global variable since used throughout
 
 app = Flask(__name__)
 
-# Use config.json to set ud_location and ud_location_type.
-# Check if ud_location is defined and call function accordingly
+ud_location = config['ud_location']
+ud_location_type = config['ud_location_type']
 
-ud_location = ""
-ud_location_type = ""
+c_data.update_stats()
+c_news.update_news()
 
-"""
-Coding Tip:
-# Run code to find covid stats here (outside the "@app.route('/')" decorator)
-# to update the dashboard stats and news. Use global variables?
-# Generate the values here and display it in the dashboard inside the
-# "@app.route('/')" decorator
-"""
-
-stats = {}  # This variable gets displayed, changes are made to this
-news = {}  # This variable gets displayed, changes are made to this
-
-# Update for covid stats to be displayed in dashboard when it's initially
-# opened. This prevents continuous refresh of stats. After this the scheduled
-# updates will handle it.
-
-if ud_location == "":
-    ud_location = "Exeter"
-    stats = covid_data_handler.covid_API_request()
-else:
-    stats = covid_data_handler.covid_API_request(ud_location,
-                                                 ud_location_type)
-
-# Update for the news to display in dashboard when it's initially opened.
-# This prevents continuous refresh of news.
-
-news = covid_news_handling.update_news()
-
-
-@app.route('/')
-def updates():
-    """
-    This function shall run all the updating functions i.e those for covid stats
-    and news. Since the page refreshes every 60 seconds this function will be
-    run. This only runs the scheduling functions so the covid stats and news
-    will be run when the time that is set for it is reached. The refresh simply
-    leads to the time being checked.
-    """
-    return render_template('index.html',
-                           location=ud_location,
-                           nation_location="England",
-                           local_7day_infections=stats["L7DIR"],
-                           national_7day_infections=stats["N7DIR"],
-                           hospital_cases=stats["CHCases"],
-                           deaths_total=stats["TD"])
-
-# The following decorator is reached when any button is pressed.
-# When the "Submit" button is pressed the request triggered is update
-# When the "Scheduled updates X" button is pressed the request triggered is
-# update_item
-# When the "News headlines X" button is pressed the request triggered is notif
+ui_scheduled_updates = []
 
 
 @app.route('/index')
-def button_response():
+def button_responses():
+    # Receiving any arguments that are sent when the submit button is triggered.
+    update_name = request.args.get('two')  # Always filled.
+    update_time = request.args.get('update')
+    repeating = request.args.get('repeat')
+    covid_ud = request.args.get('covid-data')
+    news_ud = request.args.get('news')
+    if update_name:
+        if update_time:
+            if covid_ud and news_ud:
+                if repeating:
+                    c_data.schedule_repeating_covid_updates(update_name +
+                                        ' (News and statistics) (Repeating)',
+                                                 interval(update_time))
+                    c_news.schedule_repeating_news_updates(update_name +
+                                        ' (News and statistics) (Repeating)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                        ' (News and statistics) (Repeating)',
+                                                 'content': update_time})
+                else:
+                    c_data.schedule_repeating_covid_updates(update_name +
+                                                ' (News and statistics)',
+                                                  interval(update_time))
+                    c_news.schedule_repeating_news_updates(update_name +
+                                                ' (News and statistics)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                                ' (News and statistics)',
+                                                 'content': update_time})
+            elif covid_ud:
+                if repeating:
+                    c_data.schedule_repeating_covid_updates(update_name +
+                                                ' (Statistics)(Repeating)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                                 ' (Statistics)(Repeating)',
+                                                 'content': update_time})
+                else:
+                    c_data.schedule_covid_updates(update_name + ' (Statistics)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                                 ' (Statistics)',
+                                                 'content': update_time})
+            elif news_ud:
+                if repeating:
+                    c_news.schedule_repeating_news_updates(update_name +
+                                                 ' (News)(Repeating)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                                 ' (News)(Repeating)',
+                                                 'content': update_time})
+                else:
+                    c_news.schedule_news_updates(update_name + ' (News)',
+                                                 interval(update_time))
+                    ui_scheduled_updates.append({'title': update_name +
+                                                          ' (News)',
+                                                 'content': update_time})
+        else:
+            # The programming flow reaching here indicates no update_time was
+            # specified. 2 options, do nothing or update, can be changed in json
+            if config['update_no_time_specified']:
+                if covid_ud and news_ud:
+                    c_news.update_news()
+                    c_data.update_stats()
+                elif covid_ud:
+                    c_data.update_stats()
+                elif news_ud:
+                    c_news.update_news()
+
+    UpdateScheduler.run(blocking=False)
+    #  Receiving any arguments that are sent when the x buttons are triggered.
+    update_to_cancel = request.args.get('update_item')
+    article_to_delete = request.args.get('notif')
+    if update_to_cancel:
+        c_data.cancel_scheduled_stats_updates(update_to_cancel)
+        del ui_scheduled_updates[update_to_cancel]
+    if article_to_delete:
+        # This will update the global articles list used in that module
+        c_news.remove_article(article_to_delete)
     return render_template('index.html',
                            location=ud_location,
                            nation_location="England",
-                           local_7day_infections=stats["L7DIR"],
-                           national_7day_infections=stats["N7DIR"],
-                           hospital_cases=stats["CHCases"],
-                           deaths_total=stats["TD"])
+                           local_7day_infections=c_data.stats["L7DIR"],
+                           national_7day_infections=c_data.stats["N7DIR"],
+                           hospital_cases=c_data.stats["CHCases"],
+                           deaths_total=c_data.stats["TD"],
+                           news_articles=c_news.news_articles,
+                           updates=ui_scheduled_updates)
 
 
 if __name__ == '__main__':

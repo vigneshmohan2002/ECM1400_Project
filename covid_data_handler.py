@@ -1,15 +1,15 @@
 from uk_covid19 import Cov19API
-import sched
-import json
+from miscellaneous import json_processor, UpdateScheduler
 
+config = json_processor('config.json')
 
-def json_processor(filename):
-    with open(filename, 'r') as f:
-        file = json.load(f)
-    return file
+ud_location = config["ud_location"]
+ud_location_type = config["ud_location_type"]
 
+# Global variable that will be accessed here and in user_interface module
+stats = {}
 
-config = json_processor('config.json')  # Global variable since used throughout
+scheduled_stats_updates = {}
 
 
 def parse_csv_data(csv_filename: str):
@@ -174,7 +174,7 @@ def covid_API_request(location="Exeter", location_type="ltla"):
 
     # Storing the parsed data in a variable allows it to use it again later
     # This prevents unnecessarily running the function twice
-    area_data = parse_csv_data("area_data.csv")
+    area_data = parse_csv_data("csv_data/area_data.csv")
 
     area_7dir, area_chc, area_td = \
         process_covid_csv_data(area_data)
@@ -184,7 +184,7 @@ def covid_API_request(location="Exeter", location_type="ltla"):
 
     # Storing the parsed data in a variable allows it to use it again later.
     # This prevents unnecessarily running the function twice.
-    country_data = parse_csv_data("country_data.csv")
+    country_data = parse_csv_data("csv_data/country_data.csv")
 
     country_7dir, country_chc, country_td = \
         process_covid_csv_data(country_data)
@@ -259,9 +259,45 @@ def covid_API_request(location="Exeter", location_type="ltla"):
     return covid_data
 
 
-def schedule_covid_updates(update_interval, update_name):
-    # Leave aside.
+def update_stats():
+    global ud_location
+    global ud_location_type
+    global stats
+    if ud_location == "":
+        stats = covid_API_request()
+    else:
+        stats = covid_API_request(ud_location,
+                                 ud_location_type)
     return None
 
 
-covid_API_request()
+def update_stats_repeating():
+    global ud_location
+    global ud_location_type
+    global stats
+    if ud_location == "":
+        stats = covid_API_request()
+        UpdateScheduler.enter(24*60*60, 1, update_stats_repeating())
+    else:
+        stats = covid_API_request(ud_location,
+                                  ud_location_type)
+        UpdateScheduler.enter(24*60*60, 1, update_stats_repeating())
+    return None
+
+
+def schedule_covid_updates(update_name: str, update_interval: int):
+    scheduled_stats_updates.update({update_name: UpdateScheduler.enter
+    (update_interval, 1, update_stats)})
+
+
+def schedule_repeating_covid_updates(update_name: str, update_interval: int):
+    scheduled_stats_updates.update({update_name: UpdateScheduler.enter
+    (update_interval, 1, update_stats_repeating)})
+
+
+def cancel_scheduled_stats_updates(update_name: str):
+    try:
+        UpdateScheduler.cancel(scheduled_stats_updates[update_name])
+        del scheduled_stats_updates[update_name]
+    except KeyError:
+        pass
