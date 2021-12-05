@@ -1,0 +1,22 @@
+{
+  "ud_location": "",
+  "ud_location_type": "",
+  "ud_search_terms": "",
+  "filepath": "/Users/vigneshmohanarajan1/PycharmProjects/ECM1400_Project/",
+  "API_key": "def57b93404d42e498143fe854a78caf",
+  "update_no_time_specified": false,
+  "structure": {
+    "areaCode": "areaCode",
+    "areaName": "areaName",
+    "areaType": "areaType",
+    "date": "date",
+    "cumDailyNsoDeathsByDeathDate": "cumDailyNsoDeathsByDeathDate",
+    "hospitalCases": "hospitalCases",
+    "newCasesBySpecimenDate": "newCasesBySpecimenDate"
+  },
+  "summation_country": [],
+  "summation_area": [],
+  "most_recent_datapoint_country": [],
+  "most_recent_datapoint_area": [],
+  "number_of_articles_on_the_page": 7
+}
