@@ -1,8 +1,49 @@
 import pytest
 import covid_data_handler as c_data
-import covid_news_handling
 import covid_news_handling as c_news
 from utils import UpdateScheduler
+from covid_news_handling import news_API_request
+from covid_news_handling import update_news
+from covid_data_handler import parse_csv_data
+from covid_data_handler import process_covid_csv_data
+from covid_data_handler import covid_API_request
+from covid_data_handler import schedule_covid_updates
+
+# PROVIDED TESTS
+
+
+def test_parse_csv_data():
+    data = c_data.parse_csv_data('nation_2021-10-28.csv')
+    assert len(data) == 639
+
+
+def test_news_API_request():
+    assert news_API_request()
+    assert news_API_request('Covid COVID-19 coronavirus') == news_API_request()
+
+
+def test_update_news():
+    update_news('test')
+
+
+def test_process_covid_csv_data():
+    last7days_cases, current_hospital_cases, total_deaths = \
+        process_covid_csv_data(parse_csv_data('nation_2021-10-28.csv'))
+    assert last7days_cases == 240_299
+    assert current_hospital_cases == 7_019
+    assert total_deaths == 141_544
+
+
+def test_covid_API_request():
+    data = covid_API_request()
+    assert isinstance(data, dict)
+
+
+def test_schedule_covid_updates():
+    schedule_covid_updates(update_interval=10, update_name='update test')
+
+
+# PROJECT TESTS
 # 15 rows (including headers)
 data_to_test_summation = \
     [
@@ -70,11 +111,6 @@ data_to_test_mrdp = \
     ]
 
 
-def test_parse_csv_data():
-    data = c_data.parse_csv_data('nation_2021-10-28.csv')
-    assert len(data) == 639
-
-
 @pytest.mark.parametrize("column_name, expected_value",
                          [
                              ("cumDailyNsoDeathsByDeathDate", 1957139),
@@ -98,18 +134,13 @@ def test_finding_most_recent_datapoint(column_name, expected_value):
         data_to_test_mrdp, column_name) == expected_value
 
 
-def test_process_covid_csv_data():
+def test_process_covid_csv_data_mine():
     last7days_cases, current_hospital_cases, total_deaths = \
         c_data.process_covid_csv_data(c_data.parse_csv_data
                                       ('nation_2021-10-28.csv'))
     assert last7days_cases == 240_299
     assert current_hospital_cases == 7_019
     assert total_deaths == 141_544
-
-
-def test_covid_API_request():
-    data = c_data.covid_API_request()
-    assert isinstance(data, dict)
 
 
 def test_covid_API_request_necessary_data():
@@ -135,7 +166,8 @@ def test_covid_API_request_additional_data():
     # Update c_data.config to add data.
     config_copy = c_data.config
     # Stripping the data necessary for the dashboard to function
-    c_data.config["structure"].update({"VaccinatedPeople": "cumPeopleVaccinatedCompleteByPublishDate"})
+    c_data.config["structure"].update({"VaccinatedPeople":
+                                    "cumPeopleVaccinatedCompleteByPublishDate"})
     # item = (name_of_column_csv, user_defined_dict_key,
     # number_of_days, skip)
     c_data.config["summation_area"] = \
@@ -184,7 +216,7 @@ def test_update_stats_repeat():
     c_data.cancel_scheduled_stats_updates("tester")
 
 
-def test_schedule_covid_updates():
+def test_schedule_covid_updates_mine():
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_data.schedule_covid_updates(update_interval=10, update_name='update test')
     assert len(UpdateScheduler.queue) > scheduled_updates_before
@@ -201,13 +233,14 @@ def test_schedule_repeating_covid_updates():
 
 def test_cancel_scheduled_stats_updates():
     scheduled_updates_before = len(UpdateScheduler.queue)
-    c_data.schedule_covid_updates(update_interval=10, update_name='cancel update test',
-                              repeating=True)
+    c_data.schedule_covid_updates(update_interval=10,
+                                  update_name='cancel update test',
+                                  repeating=True)
     c_data.cancel_scheduled_stats_updates("cancel update test")
     assert len(UpdateScheduler.queue) == scheduled_updates_before
 
 
-def test_news_API_request():
+def test_news_API_request_mine():
     assert c_news.news_API_request()
     assert c_news.news_API_request('Covid COVID-19 coronavirus') == \
            c_news.news_API_request()
@@ -224,7 +257,7 @@ def test_news_API_request_relevance():
     assert c_news.news_API_request() != c_news.news_API_request("Computer")
 
 
-def test_update_news():
+def test_update_news_mine():
     # It is checked against an empty list since it is not possible to know
     # when exactly the news is updated and there is a  very slight
     # possibility that they stay the same as the previous update leading to a

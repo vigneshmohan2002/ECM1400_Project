@@ -4,7 +4,7 @@ from flask import request
 from flask import redirect as rd, url_for
 import covid_data_handler as c_data
 import covid_news_handling as c_news
-from utils import json_processor, UpdateScheduler
+from utils import json_processor, UpdateScheduler, required_interval as interval
 import logging
 
 config = json_processor('config.json')  # Global variable since used throughout
@@ -28,7 +28,7 @@ logger.addHandler(file_handler)
 ud_location_type = config['ud_location_type']
 
 c_data.update_stats()
-c_news.update_news()
+c_news.update_news(config['ud_search_terms'])
 
 ui_scheduled_updates = []
 
@@ -37,6 +37,17 @@ def removing_finished_updates(finished_update: str) -> None:
     for update in ui_scheduled_updates:
         if update['title'] == finished_update:
             ui_scheduled_updates.remove(update)
+    if "(News)" in finished_update:
+        del c_news.scheduled_news_updates[finished_update]
+    elif "(Statistics)" in finished_update:
+        del c_data.scheduled_stats_updates[finished_update]
+    else:
+        del c_news.scheduled_news_updates[finished_update]
+        del c_data.scheduled_stats_updates[finished_update]
+
+    print(UpdateScheduler.queue)
+    print(c_data.scheduled_stats_updates)
+    print(c_news.scheduled_news_updates)
     return None
 
 
@@ -70,88 +81,95 @@ def button_responses() -> object:
                 if repeat:
                     update_name = update_name + ' (News and statistics)' + \
                                   '(Repeating)'
-                    c_data.schedule_covid_updates(update_name, update_time,
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_data.schedule_covid_updates(update_name,
+                                                  update_time=update_time,
                                                   repeating=True)
-                    c_news.schedule_news_updates(update_name, update_time,
+                    c_news.schedule_news_updates(update_name,
+                                                 update_time=update_time,
                                                  repeating=True)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
                 else:
                     update_name = update_name + ' (News and statistics)'
-                    c_data.schedule_covid_updates(update_name, update_time)
-                    c_news.schedule_news_updates(update_name, update_time)
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_data.schedule_covid_updates(update_name,
+                                                  update_time=update_time)
+                    c_news.schedule_news_updates(update_name,
+                                                 update_time=update_time)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
-                    UpdateScheduler.enter(update_time, 3,
+                    UpdateScheduler.enter(interval(update_time), 3,
                                           removing_finished_updates,
                                          argument=(update_name,))
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
             elif covid_ud:  # Stats checkbox
                 if repeat:
                     update_name = update_name + ' (Statistics)(Repeating)'
-                    c_data.schedule_covid_updates(update_name, update_time,
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_data.schedule_covid_updates(update_name,
+                                                  update_time=update_time,
                                                   repeating=True)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
                 else:
                     update_name = update_name + ' (Statistics)'
-                    c_data.schedule_covid_updates(update_name, update_time)
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_data.schedule_covid_updates(update_name,
+                                                  update_time=update_time)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
-                    UpdateScheduler.enter(update_time, 3,
+                    UpdateScheduler.enter(interval(update_time), 3,
                                           removing_finished_updates,
                                          argument=(update_name,))
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
             elif news_ud:  # News checkbox
                 if repeat:
                     update_name = update_name + ' (News)(Repeating)'
-                    c_news.schedule_news_updates(update_name, update_time,
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_news.schedule_news_updates(update_name,
+                                                 update_time=update_time,
                                                  repeating=True)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
-                    # UpdateScheduler.enter(update_time, 3,
-                    #                       removing_finished_updates,
-                    #                      argument=(update_name,))
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
                 else:
                     update_name = update_name + ' (News)'
-                    c_news.schedule_news_updates(update_name, update_time)
+                    logger.info('User tries to schedule update: %s for %s',
+                                update_name, update_time)
+                    c_news.schedule_news_updates(update_name,
+                                                 update_time=update_time)
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
-                    UpdateScheduler.enter(update_time, 3,
+                    UpdateScheduler.enter(interval(update_time), 3,
                                           removing_finished_updates,
                                          argument=(update_name,))
-                    logger.info('User tries to schedule update: %s',
-                                update_name)
         else:
             # No update_time was specified. 2 options, do nothing or update,
             # can be changed in json
             if config['update_no_time_specified']:
                 if covid_ud and news_ud:
-                    c_news.update_news()
+                    logger.info('User calls for immediate news and stats update'
+                                )
+                    c_news.update_news(config['ud_search_terms'])
                     c_data.update_stats()
-                    logger.info('User calls for news and stats update')
                 elif covid_ud:
+                    logger.info('User calls for immediate stats update')
                     c_data.update_stats()
-                    logger.info('User calls for stats update')
                 elif news_ud:
-                    c_news.update_news()
-                    logger.info('User calls for news update')
+                    logger.info('User calls for immediate news update')
+                    c_news.update_news(config['ud_search_terms'])
     UpdateScheduler.run(blocking=False)
     #  Receiving any arguments that are sent when the x buttons are triggered.
     update_to_cancel = request.args.get('update_item')
     article_to_delete = request.args.get('notif')
     if update_to_cancel:
+        logger.info('User calls to cancel update: %s', update_to_cancel)
         # This actually cancels the update
         c_data.cancel_scheduled_stats_updates(update_to_cancel)
         # The following ensures the cancellation is represented in the list
@@ -159,7 +177,6 @@ def button_responses() -> object:
         for update in ui_scheduled_updates:
             if update['title'] == update_to_cancel:
                 ui_scheduled_updates.remove(update)
-        logger.info('User calls to cancel update: %s', article_to_delete)
     if article_to_delete:
         # This will update the global articles list used in the news module
         c_news.remove_article(article_to_delete)

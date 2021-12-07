@@ -11,6 +11,7 @@ file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
+# Deriving config values from json
 config = json_processor('config.json')
 
 ud_location = config["ud_location"]
@@ -49,10 +50,9 @@ def process_covid_csv_data(covid_csv_data: list) -> int:
     :return current_hospital_cases: Current COVID-19 cases in the hospital
     :return total_deaths: Total deaths from COVID-19
     """
+
     # Splitting the strings to generate a list of values from each
     processed_data = table_generator(covid_csv_data)
-
-    # Get the string args from config.json instead of using literals.
 
     # Getting hospital cases
     if 'hospitalCases' in config['structure'].values():
@@ -109,6 +109,9 @@ def table_generator(data: list[str]) -> list[list]:
     processed_data = []
     for line in data:
         new_line = line.split(',')
+        # Due to the CSV format the last datapoint in each row had a newline
+        # escape character, this led to issues when processing the data
+        # Thus it has to be removed.
         new_line[-1] = new_line[-1].replace('\n', '')
         processed_data.append(new_line)
     return processed_data
@@ -130,7 +133,8 @@ def finding_most_recent_datapoint(data: list, column_name: str,
     try:
         column_index = data[0].index(column_name)
     except ValueError:
-        logger.warning("ValueError thrown searching for %s, indicative of user error in config file.", column_name)
+        logger.warning("ValueError thrown searching for %s, "
+                       "indicative of user error in config file.", column_name)
         print("User Error: Check Config File")
         raise ValueError
     mrdp = 0  # mrdp is most recent datapoint
@@ -173,7 +177,8 @@ def finding_summation_over_rows(data: list, column_name: str,
     try:
         column_index = data[0].index(column_name)
     except ValueError:
-        logger.warning("ValueError thrown searching for %s, indicative of user error in config file.", column_name)
+        logger.warning("ValueError thrown searching for %s, indicative of user "
+                       "error in config file.", column_name)
         print("User Error: Check Config File")
         raise ValueError
 
@@ -221,18 +226,18 @@ def covid_API_request(location: str = "Exeter",
     country_filter = ['areaType=nation', 'areaName=England']
 
     # config.json is used to pull the file structure.
-
     csv_file_structure = config['structure']
 
     # cumDailyNsoDeathsByDeathDate, hospitalCases, newCasesBySpecimenDate is
     # necessary for the dashboard to function. Therefore it is checked
     # whether it is included in the file structure and updated if it is not.
 
-    necessary_data = [
-        {'cumDailyNsoDeathsByDeathDate': 'cumDailyNsoDeathsByDeathDate'},
-        {'hospitalCases': 'hospitalCases'},
-        {'newCasesBySpecimenDate': 'newCasesBySpecimenDate'}
-    ]
+    necessary_data = \
+        [
+            {'cumDailyNsoDeathsByDeathDate': 'cumDailyNsoDeathsByDeathDate'},
+            {'hospitalCases': 'hospitalCases'},
+            {'newCasesBySpecimenDate': 'newCasesBySpecimenDate'}
+        ]
 
     for item in necessary_data:
         if not (item in csv_file_structure.values()):
@@ -245,8 +250,8 @@ def covid_API_request(location: str = "Exeter",
     area_api.get_csv(save_as="area_data.csv")
     logger.info('area_data.csv updated')
 
-    # Storing the parsed data in a variable allows it to use it again later
-    # This prevents unnecessarily running the function twice
+    # Storing the parsed data in a variable allows it to be used again later.
+    # This prevents unnecessarily running the function twice.
     area_data = parse_csv_data("area_data.csv")
 
     area_7dir, area_chc, area_td = process_covid_csv_data(area_data)
@@ -254,7 +259,7 @@ def covid_API_request(location: str = "Exeter",
     # Extracting data for the country
     country_api.get_csv(save_as="country_data.csv")
     logger.info('country_data.csv updated')
-    # Storing the parsed data in a variable allows it to use it again later.
+    # Storing the parsed data in a variable allows it to be used again later.
     # This prevents unnecessarily running the function twice.
     country_data = parse_csv_data("country_data.csv")
 
@@ -281,7 +286,8 @@ def covid_API_request(location: str = "Exeter",
                     updater = {item[1]: finding_summation_over_rows(
                         processed_area_data, item[0], item[2], item[3])}
                 except ValueError:
-                    logger.warning("User forgot to update structure in config file when using summation_area")
+                    logger.warning("User forgot to update structure in config "
+                                   "file when using summation_area")
                     updater = {item[1]: "Not in CSV file, update the structure"}
                 except:
                     logger.error('Error thrown when user used summation_area.')
@@ -291,13 +297,16 @@ def covid_API_request(location: str = "Exeter",
         if len(config['most_recent_datapoint_area']) > 0:
             for item in config['most_recent_datapoint_area']:
                 try:
+                    # item = (name_of_column_csv, user_defined_dict_key, skip)
                     updater = {item[1]: finding_most_recent_datapoint(
                         processed_area_data, item[0], item[2])}
                 except ValueError:
-                    logger.warning("User forgot to update structure in config file when using most_recent_datapoint_area")
+                    logger.warning("User forgot to update structure in config "
+                                   "file when using most_recent_datapoint_area")
                     updater = {item[1]: "Not in CSV file, update the structure"}
                 except:
-                    logger.error('Error thrown when user used most_recent_datapoint_area.')
+                    logger.error('Error thrown when user used '
+                                 'most_recent_datapoint_area.')
                     updater = {item[1]: "Error"}
                 additional_data.update(updater)
 
@@ -309,26 +318,34 @@ def covid_API_request(location: str = "Exeter",
         if len(config['summation_country']) > 0:
             for item in config['summation_country']:
                 try:
+                    # item = (name_of_column_csv, user_defined_dict_key,
+                    # number_of_days, skip)
                     updater = {item[1]: finding_summation_over_rows(
                         processed_country_data, item[0], item[2], item[3])}
                 except ValueError:
-                    logger.warning("User forgot to update structure in config file when using summation_country")
+                    logger.warning("User forgot to update structure in config "
+                                   "file when using summation_country")
                     updater = {item[1]: "Not in CSV file, update the structure"}
                 except:
-                    logger.error('Error thrown when user used summation_country.')
+                    logger.error('Error thrown when user used '
+                                 'summation_country.')
                     updater = {item[1]: "Error"}
                 additional_data.update(updater)
 
         if len(config['most_recent_datapoint_country']) > 0:
             for item in config['most_recent_datapoint_country']:
                 try:
+                    # item = (name_of_column_csv, user_defined_dict_key, skip)
                     updater = {item[1]: finding_most_recent_datapoint(
                         processed_country_data, item[0], item[2])}
                 except ValueError:
-                    logger.warning("User forgot to update structure in config file when using most_recent_datapoint_country")
+                    logger.warning("User forgot to update structure in config "
+                                   "file when using "
+                                   "most_recent_datapoint_country")
                     updater = {item[1]: "Not in CSV file, update the structure"}
                 except:
-                    logger.error('Error thrown when user used most_recent_datapoint_country.')
+                    logger.error('Error thrown when user used '
+                                 'most_recent_datapoint_country.')
                     updater = {item[1]: "Error"}
                 additional_data.update(updater)
 
@@ -341,6 +358,7 @@ def update_stats() -> None:
     This function updates the global stats variable that is accessed by the
     user_interface module when scheduled.
     """
+    logger.info('update_stats called.')
     global ud_location
     global ud_location_type
     global stats
@@ -372,13 +390,12 @@ def update_stats_repeat(update_name, repeat_interval=24*60*60) -> None:
         task = UpdateScheduler.enter(repeat_interval, 1, update_stats_repeat,
                                      argument=(update_name, ))
         scheduled_stats_updates.update({update_name: task})
-        logger.info('stats updated.')
     else:
         stats = covid_API_request(ud_location, ud_location_type)
         task = UpdateScheduler.enter(repeat_interval, 1, update_stats_repeat,
                                      argument=(update_name, ))
         scheduled_stats_updates.update({update_name: task})
-        logger.info('stats updated.')
+    logger.info('stats updated.')
     return None
 
 
@@ -405,8 +422,8 @@ def schedule_covid_updates(update_name: str,
         scheduled_stats_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 1, update_stats_repeat,
          argument=(update_name, repeat_interval))})
-        logger.info('Repeating covid update scheduled for %s, delay: %s', update_time,
-                    str(update_interval))
+        logger.info('Repeating covid update scheduled for %s, delay: %s',
+                    update_time, str(update_interval))
     else:
         scheduled_stats_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 1, update_stats)})

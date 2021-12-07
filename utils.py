@@ -62,5 +62,12 @@ def required_interval(given_time: str) -> int:
     :param given_time: Time given by user in HH:MM format
     :return: Number of seconds from current time to given time
     """
-    return hhmmss_to_seconds(given_time+":00") - \
-           hhmmss_to_seconds(current_time_hhmmss())
+    scheduled_for = hhmmss_to_seconds(given_time+":00")
+    current = hhmmss_to_seconds(current_time_hhmmss())
+    if scheduled_for > current:
+        return hhmmss_to_seconds(given_time+":00") - \
+               hhmmss_to_seconds(current_time_hhmmss())
+    else:
+        return (hhmmss_to_seconds(given_time+":00") + 24*60*60) -\
+               hhmmss_to_seconds(current_time_hhmmss())
+
