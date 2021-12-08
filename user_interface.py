@@ -6,6 +6,7 @@ import covid_data_handler as c_data
 import covid_news_handling as c_news
 from utils import json_processor, UpdateScheduler, required_interval as interval
 import logging
+import testing
 
 config = json_processor('config.json')  # Global variable since used throughout
 

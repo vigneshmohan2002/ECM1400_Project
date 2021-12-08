@@ -408,15 +408,18 @@ def schedule_covid_updates(update_name: str,
     :param repeating: Whether the update is repeating or not.
     :param repeat_interval: The interval between repeats for repeating updates
     """
+    # Checks if update_time is given
     if update_time != "":
         update_interval = interval(update_time)
     if repeating:
+        # Scheduling repeating updates
         scheduled_stats_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 1, update_stats,
          argument=(update_name, repeat_interval))})
         logger.info('Repeating covid update scheduled for %s, delay: %s',
                     update_time, str(update_interval))
     else:
+        # Scheduling updates
         scheduled_stats_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 1, update_stats)})
         logger.info('Covid update scheduled for %s, delay: %s', update_time,
@@ -433,10 +436,14 @@ def cancel_scheduled_stats_updates(update_name: str) -> None:
     :param update_name: The name of the update
     """
     try:
+        # Cancels the scheduled update
         UpdateScheduler.cancel(scheduled_stats_updates[update_name])
+        # Removes the record of the update from the dictionary
         del scheduled_stats_updates[update_name]
         logger.info('%s update cancelled.', update_name)
     except KeyError:
+        # Shouldn't be possible for this error to be thrown.
+        logger.error('Key error was thrown')
         pass
     except ValueError:
         # This will be run in the off chance that an update that has been

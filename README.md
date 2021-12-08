@@ -96,7 +96,7 @@ has become a daily challenge. This application aims to help users get all the in
 <!-- USAGE EXAMPLES -->
 ## Dashboard in use
 
-https://github.com/vigneshmohan2002/ECM1400_Project/blob/c3d4eaf13eed891a06b85da85d22c31af78ba93f/Screen%20Shot%202021-12-07%20at%2012.35.06%20AM.png
+https://github.com/vigneshmohan2002/ECM1400_Project/blob/main/COVID-19%20Dasboard.png
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 

@@ -178,7 +178,7 @@ def test_covid_API_request_additional_data():
     config_copy = c_data.config
     # Stripping the data necessary for the dashboard to function
     c_data.config["structure"].update({"VaccinatedPeople":
-                                    "cumPeopleVaccinatedCompleteByPublishDate"})
+                                           "cumPeopleVaccinatedCompleteByPublishDate"})
     # item = (name_of_column_csv, user_defined_dict_key,
     # number_of_days, skip)
     c_data.config["summation_area"] = \
@@ -190,6 +190,7 @@ def test_covid_API_request_additional_data():
     c_data.config["most_recent_datapoint_country"] = \
         [("VaccinatedPeople", "VaxxMRDPCountry", 0)]
     data = c_data.covid_API_request()
+    print(data)
     assert data['VaxxSumArea']
     assert data['VaxxSumCountry']
     assert data['VaxxMRDPArea']
@@ -305,7 +306,7 @@ def test_schedule_news_updates():
 def test_schedule_repeating_news_updates():
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_news.schedule_news_updates(update_interval=10, update_name='update test',
-                                  repeating=True)
+                                 repeating=True)
     assert len(UpdateScheduler.queue) > scheduled_updates_before
     c_news.cancel_scheduled_news_updates("update test")
 
@@ -322,5 +323,3 @@ def test_remove_article():
 
 def run_all_tests():
     a = pytest.main(['testing.py'])
-
-run_all_tests()

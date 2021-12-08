@@ -36,19 +36,15 @@ def news_API_request(covid_terms: str = "Covid COVID-19 coronavirus") -> dict:
     url = 'https://newsapi.org/v2/everything?'
     search_terms = covid_terms.split()
     results = {}
-    pagesize = config['number_of_articles_on_the_page']
-    # Ensures the user-defined pagesize doesn't cause errors with the API call
-    if pagesize > 100:
-        pagesize = 100
-    elif pagesize < 0:
-        pagesize = 1
+
+    # Accesses the api for each term.
     for term in search_terms:
         parameters = {
             'q': term,
-            'pageSize': pagesize,
+            'pageSize': 20,
             'apiKey': config['News_API_key']
         }
-        results = requests.get(url, params=parameters).json()
+        results.update(requests.get(url, params=parameters).json())
     logger.info('News API accessed')
     return results["articles"]
 
@@ -64,19 +60,26 @@ def update_news(search_terms: str = "", update_name: str = "",
     """
     global news_articles
     news_articles = []
+    n_of_a = config['number_of_articles_on_the_page']
     if search_terms == "":
         articles_to_be_processed = news_API_request()
     else:
         articles_to_be_processed = news_API_request(search_terms)
     for article in articles_to_be_processed:
-        # Checking if the article has been removed previously before adding it
-        if not(article["title"] in removed_articles):
-            news_articles.append({'title': article["title"],
-                                  'content': (article["content"][:100] +
-                                              "..." + 'Read More:' +
-                                              article["url"])
-                                  })
+        # Ensuring number of article is not exceeded
+        if len(news_articles) < n_of_a:
+            # Checking if the article has been removed previously before
+            # adding it
+            if not(article["title"] in removed_articles):
+                news_articles.append({'title': article["title"],
+                                      'content': (article["content"][:100] +
+                                                  "..." + 'Read More:' +
+                                                  article["url"])
+                                      })
+        else:
+            break
     if repeat_interval:
+        # Ensures repeating updates schedule themselves
         task = UpdateScheduler.enter(repeat_interval, 2, update_news,
                                      argument=(ud_search_terms, update_name,
                                                repeat_interval))
@@ -96,6 +99,7 @@ def remove_article(del_article_title: str) -> None:
     for article in news_articles:
         if article["title"] == del_article_title:
             news_articles.remove(article)
+    # Updates a set of removed articles
     removed_articles.add(del_article_title)
     return None
 
@@ -115,15 +119,18 @@ def schedule_news_updates(update_name: str, update_interval: int = 0,
     :param repeating: Whether the update is repeating or not.
     :param repeat_interval: The interval between repeats for repeating updates
     """
+    # Checks if update_time is given
     if update_time != "":
         update_interval = interval(update_time)
     if repeating:
+        # Scheduling repeating updates
         scheduled_news_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 2, update_news,
          argument=(ud_search_terms, update_name,  repeat_interval))})
         logger.info('Repeating news update scheduled for %s, delay: %s',
                     update_time, str(update_interval))
     else:
+        # Scheduling updates
         scheduled_news_updates.update({update_name: UpdateScheduler.enter
         (update_interval, 2, update_news, argument=(ud_search_terms, ))})
         logger.info('News update scheduled for %s, delay: %s',
@@ -140,7 +147,9 @@ def cancel_scheduled_news_updates(update_name: str) -> None:
     :param update_name: The name of the update
     """
     try:
+        # Cancels the scheduled update
         UpdateScheduler.cancel(scheduled_news_updates[update_name])
+        # Removes the record of the update from the dictionary
         del scheduled_news_updates[update_name]
         logger.info('%s update cancelled.', update_name)
     except KeyError:
