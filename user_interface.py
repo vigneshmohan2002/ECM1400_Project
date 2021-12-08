@@ -44,10 +44,6 @@ def removing_finished_updates(finished_update: str) -> None:
     else:
         del c_news.scheduled_news_updates[finished_update]
         del c_data.scheduled_stats_updates[finished_update]
-
-    print(UpdateScheduler.queue)
-    print(c_data.scheduled_stats_updates)
-    print(c_news.scheduled_news_updates)
     return None
 
 

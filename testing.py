@@ -9,6 +9,17 @@ from covid_data_handler import process_covid_csv_data
 from covid_data_handler import covid_API_request
 from covid_data_handler import schedule_covid_updates
 
+import logging
+
+# Logger initialization
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
+file_handler = logging.FileHandler('ProjectLogFile.log')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 # PROVIDED TESTS
 
 
@@ -209,7 +220,7 @@ def test_update_stats_repeat():
     stats_copy = c_data.stats
     c_data.stats = {}
     scheduled_updates_before = len(UpdateScheduler.queue)
-    c_data.update_stats_repeat("tester")
+    c_data.update_stats("tester", 60)
     assert c_data.stats != {}
     assert len(UpdateScheduler.queue) > scheduled_updates_before
     c_data.stats = stats_copy
@@ -277,7 +288,7 @@ def test_update_news_repeat():
     news_copy = c_news.news_articles
     c_news.news_articles = []
     scheduled_updates_before = len(UpdateScheduler.queue)
-    c_news.update_news_repeat("tester")
+    c_news.update_news("tester", "test", 60)
     assert c_news.news_articles != []
     assert len(UpdateScheduler.queue) > scheduled_updates_before
     c_news.news_articles = news_copy
@@ -305,7 +316,11 @@ def test_remove_article():
     c_news.update_news()
     length_before_remove = len(c_news.news_articles)
     c_news.remove_article(c_news.news_articles[0]["title"])
-    print(len(c_news.news_articles))
-    print(length_before_remove)
     assert len(c_news.news_articles) < length_before_remove
     c_news.news = news_copy
+
+
+def run_all_tests():
+    a = pytest.main(['testing.py'])
+
+run_all_tests()

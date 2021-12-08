@@ -240,28 +240,27 @@ def covid_API_request(location: str = "Exeter",
         ]
 
     for item in necessary_data:
-        if not (item in csv_file_structure.values()):
-            csv_file_structure.update(item)
+        csv_file_structure.update(item)
 
     area_api = Cov19API(filters=area_filter, structure=csv_file_structure)
     country_api = Cov19API(filters=country_filter, structure=csv_file_structure)
 
     # Extracting data for the local area.
-    area_api.get_csv(save_as="area_data.csv")
+    area_api.get_csv(save_as=config['filepath'] + "area_data.csv")
     logger.info('area_data.csv updated')
 
     # Storing the parsed data in a variable allows it to be used again later.
     # This prevents unnecessarily running the function twice.
-    area_data = parse_csv_data("area_data.csv")
+    area_data = parse_csv_data(config['filepath'] + 'area_data.csv')
 
     area_7dir, area_chc, area_td = process_covid_csv_data(area_data)
 
     # Extracting data for the country
-    country_api.get_csv(save_as="country_data.csv")
+    country_api.get_csv(save_as=config['filepath'] + "country_data.csv")
     logger.info('country_data.csv updated')
     # Storing the parsed data in a variable allows it to be used again later.
     # This prevents unnecessarily running the function twice.
-    country_data = parse_csv_data("country_data.csv")
+    country_data = parse_csv_data(config['filepath'] + 'country_data.csv')
 
     country_7dir, country_chc, country_td = process_covid_csv_data(country_data)
 
@@ -353,49 +352,42 @@ def covid_API_request(location: str = "Exeter",
     return covid_data
 
 
-def update_stats() -> None:
+def update_stats(update_name: str = "",
+                 repeat_interval: int = None) -> None:
     """
     This function updates the global stats variable that is accessed by the
     user_interface module when scheduled.
     """
-    logger.info('update_stats called.')
+    if repeat_interval:
+        logger.info('update_stats called. (With repeat)')
+    else:
+        logger.info('update_stats called.')
     global ud_location
     global ud_location_type
     global stats
     if ud_location == "":
         stats = covid_API_request()
+        if repeat_interval:
+            task = UpdateScheduler.enter(repeat_interval, 1, update_stats,
+                                         argument=(update_name,
+                                                   repeat_interval))
+            scheduled_stats_updates.update({update_name: task})
+            logger.info('stats updated (repeat after %s).', repeat_interval)
+        else:
+            logger.info('stats updated')
     else:
         stats = covid_API_request(ud_location,
                                  ud_location_type)
-    logger.info('stats updated.')
-    return None
-
-
-def update_stats_repeat(update_name, repeat_interval=24*60*60) -> None:
-    """
-    This function updates the global stats variable that is accessed by the
-    user_interface module when scheduled. It also schedules itself to run again
-    in 24 hours under the same update name so that it may be canceled if
-    requested by the user.
-
-    :param update_name: The name of the update
-    :param repeat_interval: Interval between updates
-    """
-    logger.info('update_stats_repeat called.')
-    global ud_location
-    global ud_location_type
-    global stats
-    if ud_location == "":
-        stats = covid_API_request()
-        task = UpdateScheduler.enter(repeat_interval, 1, update_stats_repeat,
-                                     argument=(update_name, ))
-        scheduled_stats_updates.update({update_name: task})
-    else:
-        stats = covid_API_request(ud_location, ud_location_type)
-        task = UpdateScheduler.enter(repeat_interval, 1, update_stats_repeat,
-                                     argument=(update_name, ))
-        scheduled_stats_updates.update({update_name: task})
-    logger.info('stats updated.')
+        if repeat_interval:
+            task = UpdateScheduler.enter(repeat_interval, 1, update_stats,
+                                         argument=(update_name,
+                                                   repeat_interval))
+            scheduled_stats_updates.update({update_name: task})
+            logger.info('stats updated (with repeat '
+                        'scheduled after %s seconds).',
+                        repeat_interval)
+        else:
+            logger.info('stats updated')
     return None
 
 
@@ -420,7 +412,7 @@ def schedule_covid_updates(update_name: str,
         update_interval = interval(update_time)
     if repeating:
         scheduled_stats_updates.update({update_name: UpdateScheduler.enter
-        (update_interval, 1, update_stats_repeat,
+        (update_interval, 1, update_stats,
          argument=(update_name, repeat_interval))})
         logger.info('Repeating covid update scheduled for %s, delay: %s',
                     update_time, str(update_interval))

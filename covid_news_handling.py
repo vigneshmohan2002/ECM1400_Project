@@ -1,5 +1,5 @@
 import requests
-from utils import json_processor, UpdateScheduler, current_time_hhmmss
+from utils import json_processor, UpdateScheduler
 from utils import required_interval as interval
 import logging
 
@@ -37,23 +37,33 @@ def news_API_request(covid_terms: str = "Covid COVID-19 coronavirus") -> dict:
     search_terms = covid_terms.split()
     results = {}
     pagesize = config['number_of_articles_on_the_page']
+    # Ensures the user-defined pagesize doesn't cause errors with the API call
+    if pagesize > 100:
+        pagesize = 100
+    elif pagesize < 0:
+        pagesize = 1
     for term in search_terms:
         parameters = {
             'q': term,
             'pageSize': pagesize,
-            'apiKey': config['News_API_key'],
+            'apiKey': config['News_API_key']
         }
         results = requests.get(url, params=parameters).json()
     logger.info('News API accessed')
     return results["articles"]
 
 
-def update_news(search_terms: str = "") -> None:
+def update_news(search_terms: str = "", update_name: str = "",
+                repeat_interval: int = None) -> None:
     """
     This function updates the global news_articles variable that is accessed by
     the user_interface module when scheduled.
     :param search_terms: Terms to search for
+    :param update_name: The name of the update
+    :param repeat_interval: The interval between repeats if applicable
     """
+    global news_articles
+    news_articles = []
     if search_terms == "":
         articles_to_be_processed = news_API_request()
     else:
@@ -62,41 +72,18 @@ def update_news(search_terms: str = "") -> None:
         # Checking if the article has been removed previously before adding it
         if not(article["title"] in removed_articles):
             news_articles.append({'title': article["title"],
-                                  'content': article["content"][:100],
-                                  'url': article["url"]
+                                  'content': (article["content"][:100] +
+                                              "..." + 'Read More:' +
+                                              article["url"])
                                   })
-    logger.info('news_articles updated')
-    return None
-
-
-def update_news_repeat(update_name: str, search_terms: str = "",
-                       repeat_interval: int = 24*60*60) -> None:
-    """
-    This function updates the global news_articles variable that is accessed by
-    the user_interface module when scheduled. It also schedules itself to run
-    again in 24 hours under the same update name so that it may be canceled if
-    requested by the user.
-
-    :param update_name: The name of the update
-    :param repeat_interval: The interval between repeats
-    :param search_terms: Terms to search for
-    """
-    print("called at:" + current_time_hhmmss())
-    if search_terms == "":
-        articles_to_be_processed = news_API_request()
+    if repeat_interval:
+        task = UpdateScheduler.enter(repeat_interval, 2, update_news,
+                                     argument=(ud_search_terms, update_name,
+                                               repeat_interval))
+        scheduled_news_updates.update({update_name: task})
+        logger.info('news_articles updated (repeat after %s).', repeat_interval)
     else:
-        articles_to_be_processed = news_API_request(search_terms)
-    for article in articles_to_be_processed:
-        # Checking if the article has been removed previously before adding it
-        if not(article["url"] in removed_articles):
-            news_articles.append({'title': article["title"],
-                                  'content': article["content"][:100] +
-                                             "Read More:" + article["url"]
-                                  })
-    task = UpdateScheduler.enter(repeat_interval, 2, update_news_repeat,
-                                argument=(update_name, ud_search_terms))
-    scheduled_news_updates.update({update_name: task})
-    logger.info('news_articles updated')
+        logger.info('news_articles updated')
     return None
 
 
@@ -132,8 +119,8 @@ def schedule_news_updates(update_name: str, update_interval: int = 0,
         update_interval = interval(update_time)
     if repeating:
         scheduled_news_updates.update({update_name: UpdateScheduler.enter
-        (update_interval, 2, update_news_repeat,
-         argument=(update_name, ud_search_terms, repeat_interval))})
+        (update_interval, 2, update_news,
+         argument=(ud_search_terms, update_name,  repeat_interval))})
         logger.info('Repeating news update scheduled for %s, delay: %s',
                     update_time, str(update_interval))
     else:

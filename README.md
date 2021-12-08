@@ -1,5 +1,6 @@
 ﻿
-<div id="top"></div>
+<div id="top">
+</div>
 
 <!-- PROJECT SHIELDS -->
 <!--
@@ -18,7 +19,7 @@ stories about Covid from the news.org API.
     <br />
     <a href="https://github.com/vigneshmohan2002/ECM1400_Project"><strong>Explore the docs »</strong></a>
   </p>
-</div>
+
 
 <!-- TABLE OF CONTENTS -->
 <details>
