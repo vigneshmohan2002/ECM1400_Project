@@ -40,7 +40,7 @@ def continuous_testing():
     Schedules tests to be run every 24 hours and runs the scheduler,
     :return:
     """
-    TestScheduler.enter(24*60*60, 1, testing.run_all_tests())
+    TestScheduler.enter(24*60*60, 1, testing.run_all_tests)
     TestScheduler.run(blocking=False)
 
 

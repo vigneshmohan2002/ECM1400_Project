@@ -130,6 +130,11 @@ data_to_test_mrdp = \
                              ("newCasesBySpecimenDate", 375427)
                          ])
 def test_finding_summation_over_rows(column_name, expected_value):
+    """
+    Tests finding_summation_over_rows function
+    :param column_name: Parameter to pass into finding_summation_over_rows
+    :param expected_value: Value to check function output against.
+    """
     assert c_data.finding_summation_over_rows(
         data_to_test_summation, column_name, 14) == expected_value
     return None
@@ -142,11 +147,19 @@ def test_finding_summation_over_rows(column_name, expected_value):
                              ("newCasesBySpecimenDate", 22655)
                          ])
 def test_finding_most_recent_datapoint(column_name, expected_value):
+    """
+    Tests finding_most_recent_datapoint function
+    :param column_name: Parameter to pass into finding_summation_over_rows
+    :param expected_value: Value to check function output against.
+    """
     assert c_data.finding_most_recent_datapoint(
         data_to_test_mrdp, column_name) == expected_value
 
 
 def test_process_covid_csv_data_mine():
+    """
+    Tests process_covid_csv_data function output against expected values.
+    """
     last7days_cases, current_hospital_cases, total_deaths = \
         c_data.process_covid_csv_data(c_data.parse_csv_data
                                       ('nation_2021-10-28.csv'))
@@ -156,6 +169,10 @@ def test_process_covid_csv_data_mine():
 
 
 def test_covid_API_request_necessary_data():
+    """
+    Tests if covid_API_request returns the necessary data if data necessary
+    for the functioning of the dashboard isn't in config.
+    """
     # Update c_data.config to see if necessary data is forced in.
     config_copy = c_data.config
     # Stripping the data necessary for the dashboard to function
@@ -175,11 +192,16 @@ def test_covid_API_request_necessary_data():
 
 
 def test_covid_API_request_additional_data():
+    """
+    Tests if additional data is returned by the covid_API_request when config
+    has values to be processed in the summation_area, summation_data,
+    most_recent_datapoint_country and most_recent_datapoint_area fields.
+    """
     # Update c_data.config to add data.
     config_copy = c_data.config
     # Stripping the data necessary for the dashboard to function
     c_data.config["structure"].update({"VaccinatedPeople":
-                                           "cumPeopleVaccinatedCompleteByPublishDate"})
+                                "cumPeopleVaccinatedCompleteByPublishDate"})
     # item = (name_of_column_csv, user_defined_dict_key,
     # number_of_days, skip)
     c_data.config["summation_area"] = \
@@ -191,7 +213,6 @@ def test_covid_API_request_additional_data():
     c_data.config["most_recent_datapoint_country"] = \
         [("VaccinatedPeople", "VaxxMRDPCountry", 0)]
     data = c_data.covid_API_request()
-    print(data)
     assert data['VaxxSumArea']
     assert data['VaxxSumCountry']
     assert data['VaxxMRDPArea']
@@ -203,10 +224,10 @@ def test_covid_API_request_additional_data():
 
 
 def test_update_stats():
-    # It is checked against an empty dictionary since it is not possible to know
-    # when exactly the stats are updated and there is a very slight
-    # possibility that they stay the same as the previous update leading to a
-    # false error
+    """
+    Tests update_stats function by making stats an empty dictionary and then
+    running the update_stats function and ensuring it is not empty after.
+    """
     stats_copy = c_data.stats
     c_data.stats = {}
     c_data.update_stats()
@@ -215,10 +236,12 @@ def test_update_stats():
 
 
 def test_update_stats_repeat():
-    # It is checked against an empty dictionary since it is not possible to know
-    # when exactly the stats are updated and there is a very slight
-    # possibility that they stay the same as the previous update leading to a
-    # false error. Also checks if an item is scheduled.
+    """
+    Tests update_stats_repeat function by making stats an empty dictionary and
+    then running the update_stats function and ensuring it is not empty after.
+    It also checks the length of the UpdateScheduler's queue before and after
+    the function is called to ensure update_stats_repeat schedules itself.
+    """
     stats_copy = c_data.stats
     c_data.stats = {}
     scheduled_updates_before = len(UpdateScheduler.queue)
@@ -230,6 +253,11 @@ def test_update_stats_repeat():
 
 
 def test_schedule_covid_updates_mine():
+    """
+    Tests schedule_covid_updates function by scheduling an update checks the
+    length of the UpdateScheduler's queue before and after the function is
+    called to ensure the function works as intended.
+    """
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_data.schedule_covid_updates(update_interval=10, update_name='update test')
     assert len(UpdateScheduler.queue) > scheduled_updates_before
@@ -237,6 +265,12 @@ def test_schedule_covid_updates_mine():
 
 
 def test_schedule_repeating_covid_updates():
+    """
+    Tests schedule_covid_updates function ability to schedule repeating updates
+    by scheduling an update  checks  he length of the UpdateScheduler's queue
+    before and after the function is called to ensure the function works as
+    intended.
+    """
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_data.schedule_covid_updates(update_interval=10, update_name='update test',
                                   repeating=True)
@@ -245,6 +279,10 @@ def test_schedule_repeating_covid_updates():
 
 
 def test_cancel_scheduled_stats_updates():
+    """
+    Tests cancel_scheduled_stats_updates function ability to cancel scheduling
+    updates by creating update and cancelling it.
+    """
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_data.schedule_covid_updates(update_interval=10,
                                   update_name='cancel update test',
@@ -254,20 +292,22 @@ def test_cancel_scheduled_stats_updates():
 
 
 def test_news_API_request_mine():
+    """Testing the news API request"""
     assert c_news.news_API_request()
     assert c_news.news_API_request('Covid COVID-19 coronavirus') == \
            c_news.news_API_request()
 
 
 def test_news_API_request_relevance():
+    """Testing if the News API returns relevant news articles."""
     assert c_news.news_API_request() != c_news.news_API_request("Computer")
 
 
 def test_update_news_mine():
-    # It is checked against an empty list since it is not possible to know
-    # when exactly the news is updated and there is a  very slight
-    # possibility that they stay the same as the previous update leading to a
-    # false error
+    """
+    Tests update_news function by making news_articles an empty list and
+    then running the update_news function and ensuring it is not empty after.
+    """
     news_copy = c_news.news_articles
     c_news.news_articles = []
     c_news.update_news()
@@ -276,10 +316,13 @@ def test_update_news_mine():
 
 
 def test_update_news_repeat():
-    # It is checked against an empty list since it is not possible to know
-    # when exactly the news is updated and there is a  very slight
-    # possibility that they stay the same as the previous update leading to a
-    # false error. Also checks if an item is scheduled.
+    """
+    Tests update_news function with the repeat_interval by making news_articles
+    an empty list and then running the update_news function and ensuring it is
+    not empty after. It also checks the length of the UpdateScheduler's queue
+    before and after the function is called to ensure update_news schedules
+    itself.
+    """
     news_copy = c_news.news_articles
     c_news.news_articles = []
     scheduled_updates_before = len(UpdateScheduler.queue)
@@ -291,6 +334,11 @@ def test_update_news_repeat():
 
 
 def test_schedule_news_updates():
+    """
+    Tests schedule_news_updates function by scheduling an update checks the
+    length of the UpdateScheduler's queue before and after the function is
+    called to ensure the function works as intended.
+    """
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_news.schedule_news_updates(update_interval=10, update_name='update test')
     assert len(UpdateScheduler.queue) > scheduled_updates_before
@@ -298,6 +346,11 @@ def test_schedule_news_updates():
 
 
 def test_schedule_repeating_news_updates():
+    """
+    Tests schedule_news_updates function by scheduling a repeating update and
+    then checks the length of the UpdateScheduler's queue before and after the
+    function is called to ensure the function works as intended.
+    """
     scheduled_updates_before = len(UpdateScheduler.queue)
     c_news.schedule_news_updates(update_interval=10, update_name='update test',
                                  repeating=True)
@@ -306,6 +359,9 @@ def test_schedule_repeating_news_updates():
 
 
 def test_remove_article():
+    """
+    Tests that the necessary article is removed from the news_articles list.
+    """
     news_copy = c_news.news_articles
     c_news.news_articles = []
     c_news.update_news()
@@ -327,4 +383,6 @@ def run_all_tests():
         for test in (doc['testsuites']['testsuite']['testcase']):
             if 'failure' in test.keys():
                 logger.error(test['@name'] + ' failed')
+    else:
+        logger.info('All tests passed.')
 
