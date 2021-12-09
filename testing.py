@@ -311,7 +311,7 @@ def test_remove_article():
     c_news.update_news()
     length_before_remove = len(c_news.news_articles)
     c_news.remove_article(c_news.news_articles[0]["title"])
-    assert len(c_news.news_articles) > length_before_remove
+    assert len(c_news.news_articles) < length_before_remove
     c_news.news = news_copy
 
 
