@@ -18,7 +18,9 @@ config = json_processor('config.json')
 
 # Global variable that will be accessed here and in user_interface module
 news_articles = []
+# Record of updates to the news_articles variable
 scheduled_news_updates = {}
+# Record of articles that have been removed
 removed_articles = set()
 ud_search_terms = config['ud_search_terms']
 
@@ -41,7 +43,7 @@ def news_API_request(covid_terms: str = "Covid COVID-19 coronavirus") -> dict:
     for term in search_terms:
         parameters = {
             'q': term,
-            'pageSize': 20,
+            'pageSize': 10,
             'apiKey': config['News_API_key']
         }
         results.update(requests.get(url, params=parameters).json())
@@ -59,6 +61,7 @@ def update_news(search_terms: str = "", update_name: str = "",
     :param repeat_interval: The interval between repeats if applicable
     """
     global news_articles
+    # Clearing the list so that articles don't appear twice.
     news_articles = []
     n_of_a = config['number_of_articles_on_the_page']
     if search_terms == "":
@@ -66,7 +69,7 @@ def update_news(search_terms: str = "", update_name: str = "",
     else:
         articles_to_be_processed = news_API_request(search_terms)
     for article in articles_to_be_processed:
-        # Ensuring number of article is not exceeded
+        # Ensuring number of articles is not exceeded
         if len(news_articles) < n_of_a:
             # Checking if the article has been removed previously before
             # adding it
@@ -97,6 +100,8 @@ def remove_article(del_article_title: str) -> None:
     :param del_article_title: The title of the article to be removed.
     """
     for article in news_articles:
+        # Loop to find articles that share the same title and remove them
+        # from the list of news articles.
         if article["title"] == del_article_title:
             news_articles.remove(article)
     # Updates a set of removed articles

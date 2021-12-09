@@ -138,6 +138,7 @@ def finding_most_recent_datapoint(data: list, column_name: str,
         print("User Error: Check Config File")
         raise ValueError
     mrdp = 0  # mrdp is most recent datapoint
+    # Skipping rows if applicable
     if skip <= 0:
         try:
             for line in data[1:]:
@@ -145,6 +146,7 @@ def finding_most_recent_datapoint(data: list, column_name: str,
                     mrdp = int(line[column_index])
                     break
         except IndexError:
+            # Reached if there are no rows with numeric values in the column.
             return 0
     else:  # Executed if skip is specified as a positive value.
         try:
@@ -155,6 +157,7 @@ def finding_most_recent_datapoint(data: list, column_name: str,
                         mrdp = int(line[column_index])
                     break
         except IndexError:
+            # Reached if there are no rows with numeric values in the column.
             return 0
     return mrdp
 
@@ -229,8 +232,8 @@ def covid_API_request(location: str = "Exeter",
     csv_file_structure = config['structure']
 
     # cumDailyNsoDeathsByDeathDate, hospitalCases, newCasesBySpecimenDate is
-    # necessary for the dashboard to function. Therefore it is checked
-    # whether it is included in the file structure and updated if it is not.
+    # necessary for the dashboard to function. Therefore it is always included
+    # in the file structure.
 
     necessary_data = \
         [
@@ -366,22 +369,28 @@ def update_stats(update_name: str = "",
     global ud_location_type
     global stats
     if ud_location == "":
+        # Updating the stats with default location
         stats = covid_API_request()
         if repeat_interval:
+            # Scheduling itself for after the repeat_interval
             task = UpdateScheduler.enter(repeat_interval, 1, update_stats,
                                          argument=(update_name,
                                                    repeat_interval))
+            # Adding the scheduled update to the record
             scheduled_stats_updates.update({update_name: task})
             logger.info('stats updated (repeat after %s).', repeat_interval)
         else:
             logger.info('stats updated')
     else:
+        # Updating the stats with given location
         stats = covid_API_request(ud_location,
                                  ud_location_type)
         if repeat_interval:
+            # Scheduling itself for after the repeat_interval
             task = UpdateScheduler.enter(repeat_interval, 1, update_stats,
                                          argument=(update_name,
                                                    repeat_interval))
+            # Adding the scheduled update to the record
             scheduled_stats_updates.update({update_name: task})
             logger.info('stats updated (with repeat '
                         'scheduled after %s seconds).',

@@ -3,6 +3,7 @@ import json
 import sched
 
 UpdateScheduler = sched.scheduler(time.time, time.sleep)
+TestScheduler = sched.scheduler(time.time, time.sleep)
 
 
 def json_processor(filename) -> dict:

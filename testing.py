@@ -9,6 +9,7 @@ from covid_data_handler import process_covid_csv_data
 from covid_data_handler import covid_API_request
 from covid_data_handler import schedule_covid_updates
 
+import xmltodict
 import logging
 
 # Logger initialization
@@ -258,13 +259,6 @@ def test_news_API_request_mine():
            c_news.news_API_request()
 
 
-def test_news_API_request_number_of_articles():
-    config_copy = c_news.config
-    c_news.config['number_of_articles_on_the_page'] = 5
-    assert len(c_news.news_API_request()) == 5
-    c_news.config = config_copy
-
-
 def test_news_API_request_relevance():
     assert c_news.news_API_request() != c_news.news_API_request("Computer")
 
@@ -317,9 +311,20 @@ def test_remove_article():
     c_news.update_news()
     length_before_remove = len(c_news.news_articles)
     c_news.remove_article(c_news.news_articles[0]["title"])
-    assert len(c_news.news_articles) < length_before_remove
+    assert len(c_news.news_articles) > length_before_remove
     c_news.news = news_copy
 
 
 def run_all_tests():
-    a = pytest.main(['testing.py'])
+    """
+    Runs all tests creates an xml file with the test results.
+    Reads xml file and logs any  failures.
+    """
+    pytest.main(["--junitxml=TestResults.xml", 'testing.py'])
+    with open('TestResults.xml') as file:
+        doc = xmltodict.parse(file.read())
+    if int(doc['testsuites']['testsuite']['@failures']) >= 1:
+        for test in (doc['testsuites']['testsuite']['testcase']):
+            if 'failure' in test.keys():
+                logger.error(test['@name'] + ' failed')
+

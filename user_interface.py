@@ -5,6 +5,7 @@ from flask import redirect as rd, url_for
 import covid_data_handler as c_data
 import covid_news_handling as c_news
 from utils import json_processor, UpdateScheduler, required_interval as interval
+from utils import TestScheduler
 import logging
 import testing
 
@@ -34,7 +35,22 @@ c_news.update_news(config['ud_search_terms'])
 ui_scheduled_updates = []
 
 
+def continuous_testing():
+    """
+    Schedules tests to be run every 24 hours and runs the scheduler,
+    :return:
+    """
+    TestScheduler.enter(24*60*60, 1, testing.run_all_tests())
+    TestScheduler.run(blocking=False)
+
+
 def removing_finished_updates(finished_update: str) -> None:
+    """
+    This function ensures that updates are removed from all records in which
+    they may be present. There are 3 records one for user_interface,
+    covid_news_handling, and covid_data handler.
+    :param finished_update: Name of the finished update.
+    """
     for update in ui_scheduled_updates:
         if update['title'] == finished_update:
             ui_scheduled_updates.remove(update)
@@ -50,6 +66,10 @@ def removing_finished_updates(finished_update: str) -> None:
 
 @app.route('/')
 def redirect():
+    """
+    Simply redirects the user to /index. No other purpose.
+    :return: redirects the web app to /index.
+    """
     return rd(url_for('button_responses'))
 
 
@@ -63,18 +83,18 @@ def button_responses() -> object:
     flask module.
     """
     # Receiving any arguments that are sent when the submit button is triggered.
-    update_name = request.args.get('two')  # Always filled.
-    update_time = request.args.get('update')
-    repeat = request.args.get('repeat')
-    covid_ud = request.args.get('covid-data')
-    news_ud = request.args.get('news')
+    update_name = request.args.get('two')  # Textbox for update name
+    update_time = request.args.get('update')  # Textbox for update time.
+    repeat = request.args.get('repeat')  # Checkbox for repeating or not
+    covid_ud = request.args.get('covid-data')  # Checkbox for covid updates
+    news_ud = request.args.get('news')  # Checkbox for  news updates
     # This will be run if the Submit button is triggered.
     if update_name:
         if update_time:
             # Each if statement here corresponds to whether both the news and
             # stats update checkboxes were triggered or if either one was
             # triggered.
-            if covid_ud and news_ud:  # Stats and News checkboxes
+            if covid_ud and news_ud:  # Stats and News checkboxes are triggered
                 if repeat:
                     update_name = update_name + ' (News and statistics)' + \
                                   '(Repeating)'
@@ -86,6 +106,7 @@ def button_responses() -> object:
                     c_news.schedule_news_updates(update_name,
                                                  update_time=update_time,
                                                  repeating=True)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                 else:
@@ -96,13 +117,14 @@ def button_responses() -> object:
                                                   update_time=update_time)
                     c_news.schedule_news_updates(update_name,
                                                  update_time=update_time)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
                     UpdateScheduler.enter(interval(update_time), 3,
                                           removing_finished_updates,
                                          argument=(update_name,))
-            elif covid_ud:  # Stats checkbox
+            elif covid_ud:  # Stats checkbox is triggered
                 if repeat:
                     update_name = update_name + ' (Statistics)(Repeating)'
                     logger.info('User tries to schedule update: %s for %s',
@@ -110,6 +132,7 @@ def button_responses() -> object:
                     c_data.schedule_covid_updates(update_name,
                                                   update_time=update_time,
                                                   repeating=True)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                 else:
@@ -118,13 +141,14 @@ def button_responses() -> object:
                                 update_name, update_time)
                     c_data.schedule_covid_updates(update_name,
                                                   update_time=update_time)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
                     UpdateScheduler.enter(interval(update_time), 3,
                                           removing_finished_updates,
                                          argument=(update_name,))
-            elif news_ud:  # News checkbox
+            elif news_ud:  # News checkbox is triggered
                 if repeat:
                     update_name = update_name + ' (News)(Repeating)'
                     logger.info('User tries to schedule update: %s for %s',
@@ -132,6 +156,7 @@ def button_responses() -> object:
                     c_news.schedule_news_updates(update_name,
                                                  update_time=update_time,
                                                  repeating=True)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                 else:
@@ -140,6 +165,7 @@ def button_responses() -> object:
                                 update_name, update_time)
                     c_news.schedule_news_updates(update_name,
                                                  update_time=update_time)
+                    # Adding to the user_interface updates record.
                     ui_scheduled_updates.append({'title': update_name,
                                                  'content': update_time})
                     # Scheduling the removal after it's performed
@@ -161,7 +187,11 @@ def button_responses() -> object:
                 elif news_ud:
                     logger.info('User calls for immediate news update')
                     c_news.update_news(config['ud_search_terms'])
+            else:
+                # User didn't ask for anything to be done. Do nothing.
+                pass
     UpdateScheduler.run(blocking=False)
+    continuous_testing()
     #  Receiving any arguments that are sent when the x buttons are triggered.
     update_to_cancel = request.args.get('update_item')
     article_to_delete = request.args.get('notif')
@@ -169,13 +199,12 @@ def button_responses() -> object:
         logger.info('User calls to cancel update: %s', update_to_cancel)
         # This actually cancels the update
         c_data.cancel_scheduled_stats_updates(update_to_cancel)
-        # The following ensures the cancellation is represented in the list
-        # Loop to find the dictionary representing the update and removing it.
+        # The following ensures the cancellation is represented in the user_interface
+        # record.
         for update in ui_scheduled_updates:
             if update['title'] == update_to_cancel:
                 ui_scheduled_updates.remove(update)
     if article_to_delete:
-        # This will update the global articles list used in the news module
         c_news.remove_article(article_to_delete)
         logger.info('User calls to delete news article: %s', article_to_delete)
     return render_template('index.html',
